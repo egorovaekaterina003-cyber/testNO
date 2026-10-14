@@ -204,7 +204,7 @@ body{background:#0b0608;background-image:radial-gradient(ellipse 80% 45% at 80% 
       <div class="label"><span class="num">3</span>Куда прислать твой результат?</div>
       <input type="email" id="email" placeholder="you@mail.ru" autocomplete="email" inputmode="email">
       <label class="consent"><input type="checkbox" id="adult"><span>Мне исполнилось 18 лет.</span></label>
-      <label class="consent" style="margin-top:8px"><input type="checkbox" id="agree"><span>Согласен(на) на обработку персональных данных и получение результата и писем от Даши. <a id="policy" href="#" target="_blank" rel="noopener">Политика конфиденциальности</a></span></label>
+      <label class="consent" style="margin-top:8px"><input type="checkbox" id="agree"><span>Согласен(на) на обработку персональных данных, включая мои ответы в тесте, и на получение результата и писем от Даши. <a id="policy" href="#" target="_blank" rel="noopener">Политика конфиденциальности</a></span></label>
       <p class="hint" style="margin:10px 0 0">Твои ответы на вопросы никуда не отправляются — мы сохраняем только итоговый стиль.</p>
       <div class="err" id="err"></div>
       <button class="btn btn-gold" id="btn-start" type="button">Начать</button>
@@ -300,7 +300,8 @@ function answer(v,b){
   if(S.part===1)S.a1[S.i]=v;else S.a2[S.i]=v;
   [...$('q-opts').children].forEach(x=>x.classList.remove('on'));b.classList.add('on');
   const tot=S.part===1?C.st.length:C.sit.length;
-  track('answer',{where:'Часть '+S.part+', вопрос '+(S.i+1)+' из '+tot});   // без содержания ответа
+  const ans=S.part===1?SCALE[v].t:g(C.sit[S.i].a[v])+' ['+g(C.types[v].name)+']';
+  track('answer',{where:'Часть '+S.part+', вопрос '+(S.i+1)+' из '+tot,qpart:S.part,qnum:S.i+1,answer:ans});
   setTimeout(()=>{lock=false;
     if(S.part===1){if(S.i<C.st.length-1){S.i++;renderQ()}else{S.part=2;S.i=0;track('part2_start');renderQ()}}
     else{if(S.i<C.sit.length-1){S.i++;renderQ()}else{showResult()}}
@@ -319,6 +320,7 @@ function compute(){
   const second=(pct[s]>=35&&pct[p]-pct[s]<=12)?s:null;
   return {pct,order,primary:p,second};
 }
+function allAnswers(){const o={};C.st.forEach((s,i)=>o['1.'+(i+1)]=S.a1[i]!==undefined?SCALE[S.a1[i]].t:'');C.sit.forEach((s,i)=>{const c=S.a2[i];o['2.'+(i+1)]=c?g(s.a[c])+' ['+g(C.types[c].name)+']':''});return o}
 function showResult(){
   const r=compute(),T=C.types,t=T[r.primary];
   const P=a=>a.map(x=>`<p>${esc(g(x))}</p>`).join('');
@@ -338,14 +340,14 @@ function showResult(){
   $('r-mail-ask').style.display='block';$('r-mail-done').style.display='none';
   show('s-res');
   const pcts={};C.order.forEach(c=>pcts[g(T[c].name)]=r.pct[c]);
-  S.lastResult={result_title:g(t.name),result_sub:t.tag,head_line:$('r-pct').textContent,second:r.second?g(T[r.second].name):'',percents:JSON.stringify(pcts),
+  S.lastResult={result_title:g(t.name),result_sub:t.tag,head_line:$('r-pct').textContent,second:r.second?g(T[r.second].name):'',percents:JSON.stringify(pcts),answers:JSON.stringify(allAnswers()),
     desire:t.desire.map(g),growth:t.growth.map(g),best:g(t.best),imagine:g(t.imagine),club:C.club,club_url:new URL(CONFIG.CLUB_URL,location.href).href};
   if(!S.viewed){S.viewed=true;track('result_viewed',S.lastResult)}
 }
 $('btn-send-mail').onclick=()=>{if(S.mailed)return;S.mailed=true;track('send_email',S.lastResult);$('r-mail-ask').style.display='none';$('r-mail-done').style.display='block'};
 $('btn-restart').onclick=()=>{S.viewed=false;S.mailed=false;show('s-start')};
 
-/* ===== отправка в Google Таблицу: только шаги и итог, без ответов ===== */
+/* ===== отправка в Google Таблицу: шаги, ответы и итог ===== */
 const SID=('L'+Date.now().toString(36)+Math.random().toString(36).slice(2,7)).toUpperCase();
 const UTM=(()=>{try{const u=new URLSearchParams(location.search);return ['utm_source','utm_medium','utm_campaign','utm_content'].map(k=>u.get(k)?k+'='+u.get(k):'').filter(Boolean).join('&')}catch(e){return ''}})();
 const STEP_LABEL={page_open:'Открыл(а) страницу',intro_click:'Нажал(а) «Узнать»',start:'Заполнил(а) анкету и начал(а) тест',answer:'Отвечает на вопросы',part2_start:'Начал(а) часть 2',result_viewed:'Увидел(а) результат',send_email:'Попросил(а) результат на почту',club_click:'Нажал(а) кнопку клуба'};
